@@ -5,7 +5,7 @@ description = ""
 authors = [
     {name = "Félix MARQUET",email = "72651575+BreizhHardware@users.noreply.github.com"}
 ]
-readme = "README.md"
+readme = "../README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pandas (>=2.3.3,<3.0.0)"
