@@ -136,9 +136,8 @@ def clean_data(input_file, output_file):
                     logger.warning(f"Column {col}: First={first_row_no_id[col]}, Others={group_no_id[col].tolist()}")
                 # keeping all for now
 
-    # production_pvgis: If 0, set to NaN
+    # production_pvgis
     df['production_pvgis'] = pd.to_numeric(df['production_pvgis'], errors='coerce')
-    df.loc[df['production_pvgis'] == 0, 'production_pvgis'] = np.nan
     df['production_pvgis'] = df['production_pvgis'].astype('Int64')
 
     # lat, lon: To float
