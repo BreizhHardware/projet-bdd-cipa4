@@ -1,15 +1,13 @@
 import pandas as pd
 import numpy as np
-import unicodedata
 import difflib
 import logging
 from collections import defaultdict
+from config import region_mapping
+from utils import normalize_text, fix_encoding, is_valid_company_name, standardize_orientation
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-def normalize_text(text):
-    return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
 
 def clean_data(input_file, output_file):
     # Load communes data for postal code lookup
@@ -21,6 +19,7 @@ def clean_data(input_file, output_file):
     dep_mapping = {}
     postal_mapping = {}
     insee_mapping = {}
+    population_mapping = {}
     dep_to_cities = defaultdict(list)
     dep_postal_to_info = defaultdict(list)
     postal_to_info = defaultdict(list)
@@ -30,13 +29,14 @@ def clean_data(input_file, output_file):
         dep_mapping[key] = row['dep_nom']
         postal_mapping[key] = int(row['code_postal']) if pd.notna(row['code_postal']) else pd.NA
         insee_mapping[key] = row['code_insee']
+        population_mapping[key] = int(row['population']) if pd.notna(row['population']) else pd.NA
 
         dep_norm = normalize_text(str(row['dep_nom']).replace('-', '').lower().strip())
         city_norm = normalize_text(str(row['nom_standard']).replace('-', '').lower().strip())
         dep_to_cities[dep_norm].append(city_norm)
 
         postal = row['code_postal']
-        info = (city_norm, row['reg_nom'], row['dep_nom'], row['code_insee'])
+        info = (city_norm, row['reg_nom'], row['dep_nom'], row['code_insee'], row['population'])
         dep_postal_to_info[(dep_norm, postal)].append(info)
         postal_to_info[postal].append(info)
 
@@ -80,38 +80,61 @@ def clean_data(input_file, output_file):
 
     # puissance_crete: If 0, set to NaN
     df['puissance_crete'] = pd.to_numeric(df['puissance_crete'], errors='coerce')
-    df.loc[df['puissance_crete'] == 0, 'puissance_crete'] = np.nan
+    # Drop rows where panneaux_modele or panneaux_marque is 'pas_dans_la_liste_panneaux' and puissance_crete == 0
+    condition = ((df['panneaux_modele'] == 'Pas_dans_la_liste_panneaux') | (df['panneaux_marque'] == 'pas_dans_la_liste_panneaux')) & (df['puissance_crete'] == 0)
+    df = df[~condition]
     df['puissance_crete'] = df['puissance_crete'].astype('Int64')
 
-    # surface: If 0 or very large (>10000?), set to NaN
+    # surface
     df['surface'] = pd.to_numeric(df['surface'], errors='coerce')
-    df.loc[(df['surface'] == 0) | (df['surface'] > 10000), 'surface'] = np.nan
     df['surface'] = df['surface'].astype('Int64')
 
     # pente: OK
     df['pente'] = pd.to_numeric(df['pente'], errors='coerce').astype('Int64')
 
-    # pente_optimum: Handle nulls, keep as is
-    df['pente_optimum'] = pd.to_numeric(df['pente_optimum'], errors='coerce').astype('Int64')
+    # pente_optimum: Handle nulls, replace with median
+    df['pente_optimum'] = pd.to_numeric(df['pente_optimum'], errors='coerce')
+    median_pente_optimum = df['pente_optimum'].median()
+    df['pente_optimum'] = df['pente_optimum'].fillna(median_pente_optimum).astype('Int64')
 
     # orientation: Standardize to numbers, Sud/South = 180
-    def standardize_orientation(x):
-        if pd.isna(x):
-            return np.nan
-        x = str(x).strip().lower()
-        if x in ['sud', 'south']:
-            return 180
-        try:
-            return int(float(x))
-        except:
-            return np.nan
     df['orientation'] = df['orientation'].apply(standardize_orientation).astype('Int64')
 
-    # orientation_optimum: Handle nulls
-    df['orientation_optimum'] = pd.to_numeric(df['orientation_optimum'], errors='coerce').astype('Int64')
+    # orientation_optimum: Handle nulls, replace with median
+    df['orientation_optimum'] = pd.to_numeric(df['orientation_optimum'], errors='coerce')
+    median_orientation_optimum = df['orientation_optimum'].median()
+    df['orientation_optimum'] = df['orientation_optimum'].fillna(median_orientation_optimum).astype('Int64')
 
     # installateur: Strip
     df['installateur'] = df['installateur'].str.strip()
+
+    # Validate installateur as company name
+    df['installateur_valide'] = df['installateur'].apply(is_valid_company_name)
+
+    # Handle duplicate iddoc again after cleaning
+    duplicates = df[df.duplicated('iddoc', keep=False)]
+    for iddoc in duplicates['iddoc'].unique():
+        group = df[df['iddoc'] == iddoc]
+        if len(group) > 1:
+
+            # Check if all rows are identical (excluding 'id' column)
+            group_no_id = group.drop(columns=['id'])
+            all_identical = group_no_id.drop_duplicates().shape[0] == 1
+            if all_identical:
+                # Keep first, drop others
+                df = df.drop(group.index[1:])
+                logger.info(f"Dropped {len(group)-1} duplicate rows for iddoc {iddoc} after cleaning")
+            else:
+                # Find differing columns
+                differing_cols = []
+                first_row_no_id = group_no_id.iloc[0]
+                for col in group_no_id.columns:
+                    if not group_no_id[col].equals(first_row_no_id[col]):
+                        differing_cols.append(col)
+                logger.warning(f"Duplicate iddoc {iddoc} with different data after cleaning, differing columns: {differing_cols}")
+                for col in differing_cols:
+                    logger.warning(f"Column {col}: First={first_row_no_id[col]}, Others={group_no_id[col].tolist()}")
+                # keeping all for now
 
     # production_pvgis: If 0, set to NaN
     df['production_pvgis'] = pd.to_numeric(df['production_pvgis'], errors='coerce')
@@ -129,7 +152,7 @@ def clean_data(input_file, output_file):
     df['postal_code'] = pd.to_numeric(df['postal_code'], errors='coerce').astype('Int64')
 
     # postal_code_suffix, postal_town, administrative_area_level_3, administrative_area_level_4, political: Drop as VIDE or mostly null
-    df.drop(columns=['postal_code_suffix', 'postal_town', 'administrative_area_level_3', 'administrative_area_level_4', 'installateur'], inplace=True)
+    df.drop(columns=['postal_code_suffix', 'postal_town', 'administrative_area_level_3', 'administrative_area_level_4'], inplace=True)
 
     # locality: Strip and remove backslashes
     df['locality'] = df['locality'].str.strip().str.replace('\\', '', regex=False)
@@ -142,59 +165,31 @@ def clean_data(input_file, output_file):
     df['administrative_area_level_2'] = df['administrative_area_level_2'].str.strip()
 
     # administrative_area_level_1: Standardize regions
-    region_mapping = {
-        'provence-alpes-côte d\'azur': 'Provence-Alpes-Côte d\'Azur',
-        'paca': 'Provence-Alpes-Côte d\'Azur',
-        'provence-alpes-cote d\'azur': 'Provence-Alpes-Côte d\'Azur',
-        "provence-alpes-côte d\\'azur": 'Provence-Alpes-Côte d\'Azur',
-        'languedoc-roussillon': 'Occitanie',
-        'midi-pyrénées': 'Occitanie',
-        'languedoc-roussillon midi-pyrénées': 'Occitanie',
-        'aquitaine': 'Nouvelle-Aquitaine',
-        'poitou-charentes': 'Nouvelle-Aquitaine',
-        'limousin': 'Nouvelle-Aquitaine',
-        'aquitaine-limousin-poitou-charentes': 'Nouvelle-Aquitaine',
-        'alsace': 'Grand Est',
-        'champagne-ardenne': 'Grand Est',
-        'lorraine': 'Grand Est',
-        'alsace-champagne-ardenne-lorraine': 'Grand Est',
-        'bourgogne': 'Bourgogne-Franche-Comté',
-        'franche-comté': 'Bourgogne-Franche-Comté',
-        'bourgogne franche-comté': 'Bourgogne-Franche-Comté',
-        'picardie': 'Hauts-de-France',
-        'nord-pas-de-calais': 'Hauts-de-France',
-        'nord-pas-de-calais picardie': 'Hauts-de-France',
-        'basse-normandie': 'Normandie',
-        'haute-normandie': 'Normandie',
-        'normandy': 'Normandie',
-        'auvergne': 'Auvergne-Rhône-Alpes',
-        'rhône-alpes': 'Auvergne-Rhône-Alpes',
-        'centre': 'Centre-Val de Loire',
-        'corse': 'Corse',
-        'bretagne': 'Bretagne',
-        'britany': 'Bretagne',
-        'pays de la loire': 'Pays de la Loire',
-        'ile-de-france': 'Île-de-France',
-        'Ã®le-de-france': 'Île-de-France',
-        'Ãžle-De-France': 'Île-de-France',
-        'Ãžle-de-france': 'Île-de-France',
-    }
     df['administrative_area_level_1'] = df['administrative_area_level_1'].map(lambda x: region_mapping.get(x, x) if pd.notna(x) else x)
+
     # Then title case
     df['administrative_area_level_1'] = df['administrative_area_level_1'].str.title()
 
     # After cleaning locality and administrative_area_level_2, remap columns
     logger.info("Remapping columns using communes data...")
     df['code_insee'] = None  # Add new column
+    df['population'] = None  # Add new column
     indices_to_drop = []
     for idx, row in df.iterrows():
         locality_normalized = normalize_text(str(row['locality']).replace('-', '').lower().strip())
         dep_normalized = normalize_text(str(row['administrative_area_level_2']).replace('-', '').replace('\\', '').lower().strip())
         # Special case for Paris
+        if 'paris19earrondissement' in locality_normalized:
+            df.at[idx, 'administrative_area_level_1'] = 'Île-de-France'
+            df.at[idx, 'administrative_area_level_2'] = 'Paris'
+            df.at[idx, 'code_insee'] = 75119
+            df.at[idx, 'population'] = 183211
+            continue
         if 'paris' in locality_normalized and ('paris' in dep_normalized or 'arrondissement' in dep_normalized or 'departement' in dep_normalized):
             df.at[idx, 'administrative_area_level_1'] = 'Île-de-France'
             df.at[idx, 'administrative_area_level_2'] = 'Paris'
             df.at[idx, 'code_insee'] = 75056
+            df.at[idx, 'population'] = 2145906
             continue
         key = (locality_normalized, dep_normalized)
         if key in reg_mapping:
@@ -205,6 +200,8 @@ def clean_data(input_file, output_file):
             df.at[idx, 'postal_code'] = postal_mapping[key]
         if key in insee_mapping:
             df.at[idx, 'code_insee'] = insee_mapping[key]
+        if key in population_mapping:
+            df.at[idx, 'population'] = population_mapping[key]
         else:
             dep_norm = normalize_text(str(row['administrative_area_level_2']).replace('-', '').replace('\\', '').lower().strip())
             locality_norm = normalize_text(str(row['locality']).replace('-', '').lower().strip())
@@ -227,6 +224,7 @@ def clean_data(input_file, output_file):
                         df.at[idx, 'administrative_area_level_1'] = best_info[1]
                         df.at[idx, 'administrative_area_level_2'] = best_info[2]
                         df.at[idx, 'code_insee'] = best_info[3]
+                        df.at[idx, 'population'] = best_info[4]
                         matched = True
             if not matched and dep_norm in dep_to_cities:
                 best_score = 0
@@ -249,6 +247,8 @@ def clean_data(input_file, output_file):
                         df.at[idx, 'postal_code'] = postal_mapping[matched_key]
                     if matched_key in insee_mapping:
                         df.at[idx, 'code_insee'] = insee_mapping[matched_key]
+                    if matched_key in population_mapping:
+                        df.at[idx, 'population'] = population_mapping[matched_key]
                     matched = True
             if not matched:
                 logger.warning(f"City not found: {row['locality']} in {row['administrative_area_level_2']} so dropping row {idx}")
@@ -259,89 +259,3 @@ def clean_data(input_file, output_file):
 
     # Save cleaned data
     df.to_csv(output_file, index=False, encoding='utf-8')
-
-def fix_encoding(text):
-    if pd.isna(text):
-        return text
-    replacements = {
-        'Ã©': 'é',
-        'Ã¨': 'è',
-        'ÃŽ': 'Î',
-        'Ã¢': 'â',
-        'Ã§': 'ç',
-        'Ã»': 'û',
-        'Ã´': 'ô',
-        'Ã¯': 'ï',
-        'Ã¼': 'ü',
-        'Ã«': 'ë',
-        'Ã¹': 'ù',
-        'Ãª': 'ê',
-        'Ã®': 'î',
-        'Ã¶': 'ö',
-        'Ã¤': 'ä',
-        'Ã¿': 'ÿ',
-        'Ã': 'É',
-        'Ã': 'È',
-        'Ã': 'Ê',
-        'Ã': 'Ë',
-        'Ã': 'Ì',
-        'Ã': 'Í',
-        'Ã': 'Î',
-        'Ã': 'Ï',
-        'Ã': 'Ð',
-        'Ã': 'Ñ',
-        'Ã': 'Ò',
-        'Ã': 'Ó',
-        'Ã': 'Ô',
-        'Ã': 'Õ',
-        'Ã': 'Ö',
-        'Ã': '×',
-        'Ã': 'Ø',
-        'Ã': 'Ù',
-        'Ã': 'Ú',
-        'Ã': 'Û',
-        'Ã': 'Ü',
-        'Ã': 'Ý',
-        'Ã': 'Þ',
-        'Ã': 'ß',
-        'Ã ': 'à',
-        'Ã¡': 'á',
-        'Ã¢': 'â',
-        'Ã£': 'ã',
-        'Ã¤': 'ä',
-        'Ã¥': 'å',
-        'Ã¦': 'æ',
-        'Ã§': 'ç',
-        'Ã¨': 'è',
-        'Ã©': 'é',
-        'Ãª': 'ê',
-        'Ã«': 'ë',
-        'Ã¬': 'ì',
-        'Ã­': 'í',
-        'Ã®': 'î',
-        'Ã¯': 'ï',
-        'Ã°': 'ð',
-        'Ã±': 'ñ',
-        'Ã²': 'ò',
-        'Ã³': 'ó',
-        'Ã´': 'ô',
-        'Ãµ': 'õ',
-        'Ã¶': 'ö',
-        'Ã·': '÷',
-        'Ã¸': 'ø',
-        'Ã¹': 'ù',
-        'Ãº': 'ú',
-        'Ã»': 'û',
-        'Ã¼': 'ü',
-        'Ã½': 'ý',
-        'Ã¾': 'þ',
-        'Ã¿': 'ÿ',
-    }
-    for wrong, correct in replacements.items():
-        text = text.replace(wrong, correct)
-    return text
-
-if __name__ == "__main__":
-    input_file = "../data.csv"
-    output_file = "../cleaned_data.csv"
-    clean_data(input_file, output_file)

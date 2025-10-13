@@ -31,5 +31,5 @@ Les fichiers de base sont fournis, à savoir :
 ## Exécution
 1. Nettoyer et homogénéiser les données :
     ```bash
-   poetry run python src/data_cleanup/clean_data.py 
+   poetry run python src/data_cleanup/__init__.py
     ```
