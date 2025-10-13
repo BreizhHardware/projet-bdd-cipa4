@@ -27,3 +27,9 @@ Les fichiers de base sont fournis, à savoir :
     poetry install
     ```
 3. Configurer la base de données PostgreSQL :
+
+## Exécution
+1. Nettoyer et homogénéiser les données :
+    ```bash
+   poetry run python src/data_cleanup/clean_data.py 
+    ```
