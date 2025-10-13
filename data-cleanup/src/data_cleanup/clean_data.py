@@ -67,9 +67,8 @@ def clean_data(input_file, output_file):
     # Remove power specifications like /250W or (250W)
     df['panneaux_modele'] = df['panneaux_modele'].str.replace(r'/\s*\d+W\b', '', regex=True).str.replace(r'\(\s*\d+W\s*\)', '', regex=True).str.strip()
 
-    # nb_onduleur: Filter aberrante, if >99 set to NaN
+    # nb_onduleur
     df['nb_onduleur'] = pd.to_numeric(df['nb_onduleur'], errors='coerce')
-    df.loc[df['nb_onduleur'] > 99, 'nb_onduleur'] = np.nan
     df['nb_onduleur'] = df['nb_onduleur'].astype('Int64')
 
     # onduleur_marque: Lowercase
