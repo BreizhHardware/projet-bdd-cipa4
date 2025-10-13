@@ -1,8 +1,41 @@
 import pandas as pd
 import numpy as np
+import unicodedata
+import difflib
+from collections import defaultdict
+
+def normalize_text(text):
+    return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
 
 def clean_data(input_file, output_file):
-    # Load the data
+    # Load communes data for postal code lookup
+    print("Loading communes data...")
+    communes_file = "../communes-france-2024-limite.csv"
+    df_communes = pd.read_csv(communes_file, encoding='utf-8', low_memory=False, sep=';')
+    # Assume columns: 'nom_standard', 'code_postal', 'dep_nom', 'reg_nom', 'code_insee'
+    reg_mapping = {}
+    dep_mapping = {}
+    postal_mapping = {}
+    insee_mapping = {}
+    dep_to_cities = defaultdict(list)
+    dep_postal_to_info = defaultdict(list)
+    postal_to_info = defaultdict(list)
+    for idx, row in df_communes.iterrows():
+        key = (normalize_text(str(row['nom_standard']).replace('-', '').lower().strip()), normalize_text(str(row['dep_nom']).replace('-', '').lower().strip()))
+        reg_mapping[key] = row['reg_nom']
+        dep_mapping[key] = row['dep_nom']
+        postal_mapping[key] = int(row['code_postal']) if pd.notna(row['code_postal']) else pd.NA
+        insee_mapping[key] = row['code_insee']
+
+        dep_norm = normalize_text(str(row['dep_nom']).replace('-', '').lower().strip())
+        city_norm = normalize_text(str(row['nom_standard']).replace('-', '').lower().strip())
+        dep_to_cities[dep_norm].append(city_norm)
+
+        postal = row['code_postal']
+        info = (city_norm, row['reg_nom'], row['dep_nom'], row['code_insee'])
+        dep_postal_to_info[(dep_norm, postal)].append(info)
+        postal_to_info[postal].append(info)
+
     print("Loading data...")
     df = pd.read_csv(input_file, encoding='utf-8-sig')
     print(f"Data loaded, shape: {df.shape}")
@@ -90,10 +123,10 @@ def clean_data(input_file, output_file):
     df['postal_code'] = pd.to_numeric(df['postal_code'], errors='coerce').astype('Int64')
 
     # postal_code_suffix, postal_town, administrative_area_level_3, administrative_area_level_4, political: Drop as VIDE or mostly null
-    df.drop(columns=['postal_code_suffix', 'postal_town', 'administrative_area_level_3', 'administrative_area_level_4'], inplace=True)
+    df.drop(columns=['postal_code_suffix', 'postal_town', 'administrative_area_level_3', 'administrative_area_level_4', 'installateur'], inplace=True)
 
-    # locality: Strip
-    df['locality'] = df['locality'].str.strip()
+    # locality: Strip and remove backslashes
+    df['locality'] = df['locality'].str.strip().str.replace('\\', '', regex=False)
 
     # administrative_area_level_1: Standardize regions (basic, assume current)
     # This is complex, for now lowercase and strip
@@ -146,17 +179,163 @@ def clean_data(input_file, output_file):
     # Then title case
     df['administrative_area_level_1'] = df['administrative_area_level_1'].str.title()
 
+    # After cleaning locality and administrative_area_level_2, remap columns
+    print("Remapping columns using communes data...")
+    df['code_insee'] = None  # Add new column
+    indices_to_drop = []
+    for idx, row in df.iterrows():
+        locality_normalized = normalize_text(str(row['locality']).replace('-', '').lower().strip())
+        dep_normalized = normalize_text(str(row['administrative_area_level_2']).replace('-', '').replace('\\', '').lower().strip())
+        # Special case for Paris
+        if 'paris' in locality_normalized and ('paris' in dep_normalized or 'arrondissement' in dep_normalized or 'departement' in dep_normalized):
+            df.at[idx, 'administrative_area_level_1'] = 'Île-de-France'
+            df.at[idx, 'administrative_area_level_2'] = 'Paris'
+            df.at[idx, 'code_insee'] = 75056
+            continue
+        key = (locality_normalized, dep_normalized)
+        if key in reg_mapping:
+            df.at[idx, 'administrative_area_level_1'] = reg_mapping[key]
+        if key in dep_mapping:
+            df.at[idx, 'administrative_area_level_2'] = dep_mapping[key]
+        if key in postal_mapping:
+            df.at[idx, 'postal_code'] = postal_mapping[key]
+        if key in insee_mapping:
+            df.at[idx, 'code_insee'] = insee_mapping[key]
+        else:
+            dep_norm = normalize_text(str(row['administrative_area_level_2']).replace('-', '').replace('\\', '').lower().strip())
+            locality_norm = normalize_text(str(row['locality']).replace('-', '').lower().strip())
+            matched = False
+            if pd.notna(row['postal_code']):
+                postal = int(row['postal_code'])
+                if postal in postal_to_info:
+                    best_score = 0
+                    best_info = None
+                    for info in postal_to_info[postal]:
+                        city_norm_ref = info[0]
+                        if locality_norm in city_norm_ref or city_norm_ref in locality_norm:
+                            score = 1.0
+                        else:
+                            score = difflib.SequenceMatcher(None, locality_norm, city_norm_ref).ratio()
+                        if score > best_score:
+                            best_score = score
+                            best_info = info
+                    if best_score > 0.5:
+                        df.at[idx, 'administrative_area_level_1'] = best_info[1]
+                        df.at[idx, 'administrative_area_level_2'] = best_info[2]
+                        df.at[idx, 'code_insee'] = best_info[3]
+                        matched = True
+            if not matched and dep_norm in dep_to_cities:
+                best_score = 0
+                best_match = None
+                for city_norm in dep_to_cities[dep_norm]:
+                    if locality_norm in city_norm or city_norm in locality_norm:
+                        score = 1.0
+                    else:
+                        score = difflib.SequenceMatcher(None, locality_norm, city_norm).ratio()
+                    if score > best_score:
+                        best_score = score
+                        best_match = city_norm
+                if best_score > 0.5:
+                    matched_key = (best_match, dep_norm)
+                    if matched_key in reg_mapping:
+                        df.at[idx, 'administrative_area_level_1'] = reg_mapping[matched_key]
+                    if matched_key in dep_mapping:
+                        df.at[idx, 'administrative_area_level_2'] = dep_mapping[matched_key]
+                    if matched_key in postal_mapping:
+                        df.at[idx, 'postal_code'] = postal_mapping[matched_key]
+                    if matched_key in insee_mapping:
+                        df.at[idx, 'code_insee'] = insee_mapping[matched_key]
+                    matched = True
+            if not matched:
+                print(f"City not found: {row['locality']} in {row['administrative_area_level_2']}")
+                indices_to_drop.append(idx)
+
+    # Drop unmatched rows
+    df.drop(indices_to_drop, inplace=True)
+
     # Save cleaned data
     df.to_csv(output_file, index=False, encoding='utf-8')
 
 def fix_encoding(text):
     if pd.isna(text):
         return text
-    try:
-        # Fix double-encoded UTF-8
-        return text.encode('latin1').decode('utf-8')
-    except:
-        return text
+    replacements = {
+        'Ã©': 'é',
+        'Ã¨': 'è',
+        'ÃŽ': 'Î',
+        'Ã¢': 'â',
+        'Ã§': 'ç',
+        'Ã»': 'û',
+        'Ã´': 'ô',
+        'Ã¯': 'ï',
+        'Ã¼': 'ü',
+        'Ã«': 'ë',
+        'Ã¹': 'ù',
+        'Ãª': 'ê',
+        'Ã®': 'î',
+        'Ã¶': 'ö',
+        'Ã¤': 'ä',
+        'Ã¿': 'ÿ',
+        'Ã': 'É',
+        'Ã': 'È',
+        'Ã': 'Ê',
+        'Ã': 'Ë',
+        'Ã': 'Ì',
+        'Ã': 'Í',
+        'Ã': 'Î',
+        'Ã': 'Ï',
+        'Ã': 'Ð',
+        'Ã': 'Ñ',
+        'Ã': 'Ò',
+        'Ã': 'Ó',
+        'Ã': 'Ô',
+        'Ã': 'Õ',
+        'Ã': 'Ö',
+        'Ã': '×',
+        'Ã': 'Ø',
+        'Ã': 'Ù',
+        'Ã': 'Ú',
+        'Ã': 'Û',
+        'Ã': 'Ü',
+        'Ã': 'Ý',
+        'Ã': 'Þ',
+        'Ã': 'ß',
+        'Ã ': 'à',
+        'Ã¡': 'á',
+        'Ã¢': 'â',
+        'Ã£': 'ã',
+        'Ã¤': 'ä',
+        'Ã¥': 'å',
+        'Ã¦': 'æ',
+        'Ã§': 'ç',
+        'Ã¨': 'è',
+        'Ã©': 'é',
+        'Ãª': 'ê',
+        'Ã«': 'ë',
+        'Ã¬': 'ì',
+        'Ã­': 'í',
+        'Ã®': 'î',
+        'Ã¯': 'ï',
+        'Ã°': 'ð',
+        'Ã±': 'ñ',
+        'Ã²': 'ò',
+        'Ã³': 'ó',
+        'Ã´': 'ô',
+        'Ãµ': 'õ',
+        'Ã¶': 'ö',
+        'Ã·': '÷',
+        'Ã¸': 'ø',
+        'Ã¹': 'ù',
+        'Ãº': 'ú',
+        'Ã»': 'û',
+        'Ã¼': 'ü',
+        'Ã½': 'ý',
+        'Ã¾': 'þ',
+        'Ã¿': 'ÿ',
+    }
+    for wrong, correct in replacements.items():
+        text = text.replace(wrong, correct)
+    return text
 
 if __name__ == "__main__":
     input_file = "../data.csv"

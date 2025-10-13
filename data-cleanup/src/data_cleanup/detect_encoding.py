@@ -7,5 +7,5 @@ def detect_encoding(file_path):
         print(f"Detected encoding: {result['encoding']} with confidence {result['confidence']}")
 
 if __name__ == "__main__":
-    file_path = "../data.csv"
+    file_path = "../communes-france-2024-limite.csv"
     detect_encoding(file_path)
