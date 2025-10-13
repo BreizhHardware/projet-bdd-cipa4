@@ -2,14 +2,18 @@ import pandas as pd
 import numpy as np
 import unicodedata
 import difflib
+import logging
 from collections import defaultdict
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def normalize_text(text):
     return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
 
 def clean_data(input_file, output_file):
     # Load communes data for postal code lookup
-    print("Loading communes data...")
+    logger.info("Loading communes data...")
     communes_file = "../communes-france-2024-limite.csv"
     df_communes = pd.read_csv(communes_file, encoding='utf-8', low_memory=False, sep=';')
     # Assume columns: 'nom_standard', 'code_postal', 'dep_nom', 'reg_nom', 'code_insee'
@@ -36,12 +40,12 @@ def clean_data(input_file, output_file):
         dep_postal_to_info[(dep_norm, postal)].append(info)
         postal_to_info[postal].append(info)
 
-    print("Loading data...")
+    logger.info("Loading data...")
     df = pd.read_csv(input_file, encoding='utf-8-sig')
-    print(f"Data loaded, shape: {df.shape}")
+    logger.info(f"Data loaded, shape: {df.shape}")
 
     # Fix encoding issues in the data
-    print("Fixing encoding...")
+    logger.info("Fixing encoding...")
     string_cols = ['panneaux_marque', 'panneaux_modele', 'onduleur_marque', 'onduleur_modele', 'installateur', 'country', 'locality', 'administrative_area_level_1', 'administrative_area_level_2']
     for col in string_cols:
         if col in df.columns:
@@ -60,6 +64,8 @@ def clean_data(input_file, output_file):
 
     # panneaux_modele: Leave as is, but strip
     df['panneaux_modele'] = df['panneaux_modele'].str.strip()
+    # Remove power specifications like /250W or (250W)
+    df['panneaux_modele'] = df['panneaux_modele'].str.replace(r'/\s*\d+W\b', '', regex=True).str.replace(r'\(\s*\d+W\s*\)', '', regex=True).str.strip()
 
     # nb_onduleur: Filter aberrante, if >99 set to NaN
     df['nb_onduleur'] = pd.to_numeric(df['nb_onduleur'], errors='coerce')
@@ -130,8 +136,6 @@ def clean_data(input_file, output_file):
 
     # administrative_area_level_1: Standardize regions (basic, assume current)
     # This is complex, for now lowercase and strip
-    print("Unique administrative_area_level_1 before standardization:")
-    print(df['administrative_area_level_1'].unique()[:20])  # First 20 unique
     df['administrative_area_level_1'] = df['administrative_area_level_1'].str.lower().str.strip()
 
     # administrative_area_level_2: Strip
@@ -180,7 +184,7 @@ def clean_data(input_file, output_file):
     df['administrative_area_level_1'] = df['administrative_area_level_1'].str.title()
 
     # After cleaning locality and administrative_area_level_2, remap columns
-    print("Remapping columns using communes data...")
+    logger.info("Remapping columns using communes data...")
     df['code_insee'] = None  # Add new column
     indices_to_drop = []
     for idx, row in df.iterrows():
@@ -247,7 +251,7 @@ def clean_data(input_file, output_file):
                         df.at[idx, 'code_insee'] = insee_mapping[matched_key]
                     matched = True
             if not matched:
-                print(f"City not found: {row['locality']} in {row['administrative_area_level_2']}")
+                logger.warning(f"City not found: {row['locality']} in {row['administrative_area_level_2']} so dropping row {idx}")
                 indices_to_drop.append(idx)
 
     # Drop unmatched rows
