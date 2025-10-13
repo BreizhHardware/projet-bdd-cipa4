@@ -59,29 +59,30 @@ def clean_data(input_file, output_file):
     for col in int_cols:
         df[col] = pd.to_numeric(df[col], errors='coerce').astype('Int64')
 
-    # panneaux_marque: Standardize brands (basic lowercase)
-    df['panneaux_marque'] = df['panneaux_marque'].str.lower().str.strip()
+    # panneaux_marque: Standardize brands (basic uppercase)
+    df['panneaux_marque'] = df['panneaux_marque'].str.upper().str.strip()
 
-    # panneaux_modele: Leave as is, but strip
+    # panneaux_modele: Leave as is but upper, but strip
     df['panneaux_modele'] = df['panneaux_modele'].str.strip()
     # Remove power specifications like /250W or (250W)
     df['panneaux_modele'] = df['panneaux_modele'].str.replace(r'/\s*\d+W\b', '', regex=True).str.replace(r'\(\s*\d+W\s*\)', '', regex=True).str.strip()
+    df['panneaux_modele'] = df['panneaux_modele'].str.upper()
 
     # nb_onduleur
     df['nb_onduleur'] = pd.to_numeric(df['nb_onduleur'], errors='coerce')
     df['nb_onduleur'] = df['nb_onduleur'].astype('Int64')
 
-    # onduleur_marque: Lowercase
-    df['onduleur_marque'] = df['onduleur_marque'].str.lower().str.strip()
+    # onduleur_marque: Uppercase and strip
+    df['onduleur_marque'] = df['onduleur_marque'].str.upper().str.strip()
 
-    # onduleur_modele: Strip
-    df['onduleur_modele'] = df['onduleur_modele'].str.strip()
+    # onduleur_modele: upper and strip
+    df['onduleur_modele'] = df['onduleur_modele'].str.upper().str.strip()
 
     # puissance_crete: If 0, set to NaN
     df['puissance_crete'] = pd.to_numeric(df['puissance_crete'], errors='coerce')
-    # Drop rows where panneaux_modele or panneaux_marque is 'pas_dans_la_liste_panneaux' and puissance_crete == 0
-    condition = ((df['panneaux_modele'] == 'Pas_dans_la_liste_panneaux') | (df['panneaux_marque'] == 'pas_dans_la_liste_panneaux')) & (df['puissance_crete'] == 0)
-    df = df[~condition]
+    # Set at null where panneaux_modele or panneaux_marque is 'pas_dans_la_liste_panneaux' and puissance_crete == 0
+    df.loc[(df['puissance_crete'] == 0) & ((df['panneaux_modele'].str.lower() == 'pas_dans_la_liste_panneaux') | (df['panneaux_marque'].str.lower() == 'pas_dans_la_liste_panneaux')), 'puissance_crete'] = pd.NA
+    # For other 0 values, keep as is for now
     df['puissance_crete'] = df['puissance_crete'].astype('Int64')
 
     # surface
@@ -91,21 +92,19 @@ def clean_data(input_file, output_file):
     # pente: OK
     df['pente'] = pd.to_numeric(df['pente'], errors='coerce').astype('Int64')
 
-    # pente_optimum: Handle nulls, replace with median
+    # pente_optimum: Handle nulls, replace with null
     df['pente_optimum'] = pd.to_numeric(df['pente_optimum'], errors='coerce')
-    median_pente_optimum = df['pente_optimum'].median()
-    df['pente_optimum'] = df['pente_optimum'].fillna(median_pente_optimum).astype('Int64')
+    df['pente_optimum'] = df['pente_optimum'].astype('Int64')
 
     # orientation: Standardize to numbers, Sud/South = 180
     df['orientation'] = df['orientation'].apply(standardize_orientation).astype('Int64')
 
-    # orientation_optimum: Handle nulls, replace with median
+    # orientation_optimum: Handle nulls, replace with null
     df['orientation_optimum'] = pd.to_numeric(df['orientation_optimum'], errors='coerce')
-    median_orientation_optimum = df['orientation_optimum'].median()
-    df['orientation_optimum'] = df['orientation_optimum'].fillna(median_orientation_optimum).astype('Int64')
+    df['orientation_optimum'] = df['orientation_optimum'].astype('Int64')
 
     # installateur: Strip
-    df['installateur'] = df['installateur'].str.strip()
+    df['installateur'] = df['installateur'].str.strip().str.upper()
 
     # Validate installateur as company name
     df['installateur_valide'] = df['installateur'].apply(is_valid_company_name)
@@ -149,7 +148,7 @@ def clean_data(input_file, output_file):
     # postal_code: Handle nulls
     df['postal_code'] = pd.to_numeric(df['postal_code'], errors='coerce').astype('Int64')
 
-    # postal_code_suffix, postal_town, administrative_area_level_3, administrative_area_level_4, political: Drop as VIDE or mostly null
+    # postal_code_suffix, postal_town, administrative_area_level_3, administrative_area_level_4: Drop as VIDE
     df.drop(columns=['postal_code_suffix', 'postal_town', 'administrative_area_level_3', 'administrative_area_level_4'], inplace=True)
 
     # locality: Strip and remove backslashes
@@ -172,7 +171,6 @@ def clean_data(input_file, output_file):
     logger.info("Remapping columns using communes data...")
     df['code_insee'] = None  # Add new column
     df['population'] = None  # Add new column
-    indices_to_drop = []
     for idx, row in df.iterrows():
         locality_normalized = normalize_text(str(row['locality']).replace('-', '').lower().strip())
         dep_normalized = normalize_text(str(row['administrative_area_level_2']).replace('-', '').replace('\\', '').lower().strip())
@@ -249,11 +247,13 @@ def clean_data(input_file, output_file):
                         df.at[idx, 'population'] = population_mapping[matched_key]
                     matched = True
             if not matched:
-                logger.warning(f"City not found: {row['locality']} in {row['administrative_area_level_2']} so dropping row {idx}")
-                indices_to_drop.append(idx)
-
-    # Drop unmatched rows
-    df.drop(indices_to_drop, inplace=True)
+                # Put at null and log
+                df.at[idx, 'administrative_area_level_1'] = pd.NA
+                df.at[idx, 'administrative_area_level_2'] = pd.NA
+                df.at[idx, 'postal_code'] = pd.NA
+                df.at[idx, 'code_insee'] = pd.NA
+                df.at[idx, 'population'] = pd.NA
+                logger.warning(f"City not found: {row['locality']} in {row['administrative_area_level_2']} so set to nulls for row id {row['id']}")
 
     # Save cleaned data
     df.to_csv(output_file, index=False, encoding='utf-8')
