@@ -61,9 +61,10 @@ Les fichiers de base sont fournis, à savoir :
 
 ## Requêtes SQL
 Les requêtes SQL pour analyser les données sont disponibles dans le dossier `sql/requests`. Vous pouvez les exécuter dans votre base de données PostgreSQL pour obtenir les résultats souhaités.
-    ```bash
-    psql -U votre_utilisateur -d votre_base_de_donnees -f ../sql/requests/SqlRequests.sql
-    ```
+    
+```bash
+psql -U votre_utilisateur -d votre_base_de_donnees -f ../sql/requests/SqlRequests.sql
+```
 
 ## Auteurs
 - [Candice PAILLUSSON](https://www.linkedin.com/in/candice-paillusson-504aaa26b/)
