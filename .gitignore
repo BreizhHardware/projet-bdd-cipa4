@@ -23,3 +23,8 @@
 **/venv.local/
 **/.env.local/
 **/.venv.local/
+
+**/.env
+data-cleanup/.env
+
+**/carte_installations_france.html
