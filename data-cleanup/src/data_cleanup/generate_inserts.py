@@ -162,10 +162,3 @@ def generate_inserts(cleaned_csv_path, output_sql_path):
     # Write to output file
     with open(output_sql_path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(sql_lines))
-
-if __name__ == "__main__":
-    # Assume cleaned_data.csv is in the parent directory
-    cleaned_csv = os.path.join('..', 'cleaned_data.csv')
-    output_sql = '../sql/seeder/insert_data.sql'
-    generate_inserts(cleaned_csv, output_sql)
-    print(f"Insert script generated: {output_sql}")
