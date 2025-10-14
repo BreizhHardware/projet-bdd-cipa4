@@ -205,3 +205,97 @@ FROM Installation
 WHERE surface IS NOT NULL AND puissance_crete IS NOT NULL AND surface > 0 AND surface < 1000 -- Limiter pour éviter outliers extrêmes
 ORDER BY surface
 LIMIT 100;
+
+-- 12) Choisissez 3 indicateurs pertinents et créez une vue par indicateur.  
+-- Exemples d’indicateurs :
+-- -puissance totale et moyenne par région/année ; 
+-- -densité de puissance moyenne par commune ; 
+-- -top N marques d’onduleurs par nombre d’installations. 
+
+CREATE VIEW vue_puissance_region_annee AS
+SELECT 
+    r.nom AS region,
+    EXTRACT(YEAR FROM i.date_installation) AS annee,
+    SUM(i.puissance_crete) AS puissance_totale,
+    AVG(i.puissance_crete) AS puissance_moyenne,
+    COUNT(i.id_installation) AS nombre_installations
+FROM Installation i
+JOIN Localisation l ON i.id_ville = l.id_ville
+JOIN Departement d ON l.departement_code = d.departement_code
+JOIN Region r ON d.region_code = r.region_code
+WHERE i.date_installation IS NOT NULL
+GROUP BY r.nom, EXTRACT(YEAR FROM i.date_installation)
+ORDER BY annee DESC, puissance_totale DESC;
+
+SELECT * FROM vue_puissance_region_annee;
+DROP VIEW vue_puissance_region_annee;
+
+CREATE VIEW vue_densite_puissance_commune AS
+SELECT
+    l.ville AS commune,
+    l.code_postal,
+    d.nom AS departement,
+    r.nom AS region,
+    COUNT(i.id_installation) AS nombre_installations,
+    SUM(i.puissance_crete) AS puissance_totale,
+    AVG(i.puissance_crete) AS puissance_moyenne,
+    CASE
+        WHEN l.population > 0
+        THEN SUM(i.puissance_crete) / l.population
+        ELSE 0
+    END AS densite_puissance_par_habitant
+FROM Installation i
+JOIN Localisation l ON i.id_ville = l.id_ville
+JOIN Departement d ON l.departement_code = d.departement_code
+JOIN Region r ON d.region_code = r.region_code
+GROUP BY l.ville, l.code_postal, l.id_ville, d.nom, r.nom, l.population
+ORDER BY densite_puissance_par_habitant DESC;
+
+SELECT * FROM vue_densite_puissance_commune;
+DROP VIEW vue_densite_puissance_commune;
+
+CREATE VIEW vue_top_marques_onduleurs AS
+SELECT
+    m.marque AS marque_onduleur,
+    COUNT(DISTINCT i.id_installation) AS nombre_installations,
+    SUM(i.nb_onduleurs) AS total_onduleurs,
+    AVG(i.nb_onduleurs) AS moyenne_onduleurs_par_installation,
+    SUM(i.puissance_crete) AS puissance_totale_installations,
+    AVG(i.puissance_crete) AS puissance_moyenne_par_installation
+FROM Installation i
+JOIN Onduleur o ON i.id_onduleur = o.id_onduleur
+JOIN Marque m ON o.id_marque = m.id_marque
+GROUP BY m.marque
+ORDER BY nombre_installations DESC;
+
+SELECT * FROM vue_top_marques_onduleurs;
+DROP VIEW vue_top_marques_onduleurs;
+
+CREATE VIEW vue_orientation_pente_region AS
+SELECT
+    r.nom AS region,
+    d.nom AS departement,
+    COUNT(i.id_installation) AS nombre_installations,
+    -- Statistiques orientation
+    AVG(i.orientation) AS orientation_moyenne,
+    MIN(i.orientation) AS orientation_min,
+    MAX(i.orientation) AS orientation_max,
+    STDDEV(i.orientation) AS orientation_ecart_type,
+    -- Statistiques pente
+    AVG(i.pente) AS pente_moyenne,
+    MIN(i.pente) AS pente_min,
+    MAX(i.pente) AS pente_max,
+    STDDEV(i.pente) AS pente_ecart_type
+FROM Installation i
+JOIN Localisation l ON i.id_ville = l.id_ville
+JOIN Departement d ON l.departement_code = d.departement_code
+JOIN Region r ON d.region_code = r.region_code
+WHERE i.orientation IS NOT NULL AND i.pente IS NOT NULL
+GROUP BY GROUPING SETS (
+    (r.nom, d.nom),  -- Par département
+    (r.nom)          -- Par région
+)
+ORDER BY r.nom, d.nom NULLS FIRST;
+
+SELECT * FROM vue_orientation_pente_region;
+DROP VIEW vue_orientation_pente_region;
