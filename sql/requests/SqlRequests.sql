@@ -1,11 +1,14 @@
 --1)	Afficher la puissance crête d’une installation selon la marque et le modèle des panneaux.
 SELECT
-    i.puissance_crete,
+    ROUND(AVG(i.puissance_crete), 2) AS puissance_crete_moyenne,
     m.marque,
     p.modele
 FROM Installation i
          JOIN Panneau p ON p.Id_panneau= i.Id_panneau
          JOIN Marque m ON m.id_marque = p.id_marque
+WHERE i.puissance_crete IS NOT NULL
+GROUP BY m.marque, p.modele
+ORDER BY m.marque, p.modele
 LIMIT 100;
 
 
@@ -31,7 +34,7 @@ SELECT
     l.ville AS commune,
     COUNT(i.Id_installation) AS Nb_installation,
     SUM(i.puissance_crete) AS puissance_totale,
-    AVG (i.production) AS production_moyenne
+    ROUND(AVG (i.production), 2) AS production_moyenne
 
 FROM Installation i
          JOIN Localisation l ON l.Id_ville= i.Id_ville
@@ -51,7 +54,8 @@ SELECT
 FROM installation i
          JOIN onduleur o ON o.Id_onduleur= i.Id_onduleur
          JOIN marque m ON m.id_marque = o.id_marque
-GROUP BY m.marque;
+GROUP BY m.marque
+ORDER BY Nb_installation DESC;
 
 --5)	Déterminer, par orientation, le nombre d’installations et la puissance totale,
 -- ainsi que la répartition par pente (catégoriser les pentes par tranches à définir).
@@ -76,9 +80,9 @@ ORDER BY i.orientation, tranche_pente;
 SELECT
     i.puissance_crete,
     l.ville,
-    d.nom,
-    mp.marque,
-    mo.marque,
+    d.nom AS département,
+    mp.marque AS marque_panneau,
+    mo.marque AS marque_onduleur,
     i.surface,
     i.orientation,
     i.pente
@@ -97,9 +101,9 @@ LIMIT 20; -- on récupère les 20 premiers
 SELECT
     i.production / i.surface AS densite,
     l.ville,
-    d.nom,
-    mp.marque AS panneau_marque,
-    mo.marque AS onduleur_marque,
+    d.nom AS département,
+    mp.marque AS marque_panneau,
+    mo.marque AS marque_onduleur,
     i.surface,
     i.orientation,
     i.pente
@@ -122,7 +126,6 @@ SELECT
            FROM installation
            WHERE puissance_crete IS NOT NULL AND surface IS NOT NULL AND surface > 0
        ), 2) AS moyenne_globale
-
 FROM installation i
 WHERE puissance_crete IS NOT NULL AND surface IS NOT NULL AND surface > 0
   AND (i.puissance_crete / i.surface) < (
@@ -134,13 +137,15 @@ WHERE puissance_crete IS NOT NULL AND surface IS NOT NULL AND surface > 0
 --9)	Déterminer les 10 installations avec la densité (production/puissance) la plus faible.
 SELECT
     l.ville,
-    d.nom AS dep_nom,
-    mp.marque AS panneau_marque,
-    mo.marque AS onduleur_marque,
+    d.nom AS département,
+    mp.marque AS marque_panneau,
+    mo.marque AS marque_onduleur,
     i.surface,
     i.orientation,
     i.pente,
-    ROUND(i.production / i.puissance_crete, 4) AS densite
+    i.production,
+    i.puissance_crete,
+    ROUND((i.production::numeric / i.puissance_crete::numeric), 4) AS densite
 FROM installation i
          JOIN onduleur o ON o.Id_onduleur= i.Id_onduleur
          JOIN panneau p ON p.Id_panneau= i.Id_panneau
@@ -148,7 +153,7 @@ FROM installation i
          JOIN marque mp ON mp.id_marque = p.id_marque
          JOIN localisation l ON l.Id_ville= i.Id_ville
          JOIN departement d ON d.departement_code= l.departement_code
-WHERE i.puissance_crete IS NOT NULL AND i.puissance_crete > 0 AND i.production IS NOT NULL
+WHERE i.puissance_crete IS NOT NULL AND i.puissance_crete > 0 AND i.production IS NOT NULL AND i.production > 0
 ORDER BY densite -- ASC
 LIMIT 10;
 
