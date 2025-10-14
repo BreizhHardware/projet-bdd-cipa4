@@ -152,5 +152,51 @@ WHERE i.puissance_crete IS NOT NULL AND i.puissance_crete > 0 AND i.production I
 ORDER BY densite -- ASC
 LIMIT 10;
 
+--10)	Ajoutez une colonne dans la base de données permettant d'enregistrer la date et l'heure de la dernière modification de l'enregistrement.
+ALTER TABLE Marque ADD COLUMN last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 
+ALTER TABLE Region ADD COLUMN last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 
+ALTER TABLE Installateur ADD COLUMN last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE Panneau ADD COLUMN last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE Onduleur ADD COLUMN last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE Departement ADD COLUMN last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE Localisation ADD COLUMN last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE Installation ADD COLUMN last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+--11)	On souhaiterait explorer le lien entre la surface des installations et leur puissance crête.
+-- Proposez une ou plusieurs requêtes qui permettent d’explorer cette question et expliquez votre
+-- démarche (corrélations simples, regroupements par tranches de surface, etc.).
+-- 1. Coefficient de corrélation entre surface et puissance_crete
+SELECT CORR(surface, puissance_crete) AS correlation_surface_puissance
+FROM Installation
+WHERE surface IS NOT NULL AND puissance_crete IS NOT NULL AND surface > 0;
+
+-- 2. Moyenne de puissance_crete par tranches de surface
+SELECT
+    CASE
+        WHEN surface < 10 THEN '<10 m²'
+        WHEN surface BETWEEN 10 AND 50 THEN '10-50 m²'
+        WHEN surface BETWEEN 50 AND 100 THEN '50-100 m²'
+        WHEN surface BETWEEN 100 AND 200 THEN '100-200 m²'
+        ELSE '>200 m²'
+    END AS tranche_surface,
+    COUNT(*) AS nb_installations,
+    ROUND(AVG(puissance_crete), 2) AS puissance_moyenne,
+    ROUND(AVG(surface), 2) AS surface_moyenne
+FROM Installation
+WHERE surface IS NOT NULL AND puissance_crete IS NOT NULL AND surface > 0
+GROUP BY tranche_surface
+ORDER BY tranche_surface;
+
+-- 3. Données pour scatter plot
+SELECT puissance_crete, surface
+FROM Installation
+WHERE surface IS NOT NULL AND puissance_crete IS NOT NULL AND surface > 0 AND surface < 1000 -- Limiter pour éviter outliers extrêmes
+ORDER BY surface
+LIMIT 100;
