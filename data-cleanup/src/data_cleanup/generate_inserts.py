@@ -1,8 +1,15 @@
 import pandas as pd
 import uuid
-import os
 
 def generate_inserts(cleaned_csv_path, output_sql_path):
+    """
+    Generate SQL insert statements from the cleaned CSV data.
+    1. Read the cleaned CSV file.
+    2. Extract unique entities and assign UUIDs.
+    3. Generate SQL insert statements for each table.
+    4. Write the SQL statements to the output file.
+    5. Handle NULL values and escape single quotes in strings.
+    """
     # Read the cleaned CSV
     df = pd.read_csv(cleaned_csv_path, encoding='utf-8')
 

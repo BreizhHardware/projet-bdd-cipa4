@@ -1,11 +1,20 @@
 import unicodedata
 import pandas as pd
 import numpy as np
+import html
+import re
+from transformers import pipeline
 
 def normalize_text(text):
+    """
+    Normalize text by removing accents.
+    """
     return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
 
 def fix_encoding(text):
+    """
+    Fix common encoding issues in text.
+    """
     if pd.isna(text):
         return text
     replacements = {
@@ -92,14 +101,54 @@ def fix_encoding(text):
         text = text.replace(wrong, correct)
     return text
 
+def clean_company_name(text):
+    """
+    Cleans and normalizes company names.
+    """
+    if pd.isna(text):
+        return text
+    text = str(text)
+    # Decode HTML entities
+    text = html.unescape(text)
+    # Remove extra spaces
+    text = re.sub(r'\s+', ' ', text).strip()
+    # Fix encoding issues
+    text = fix_encoding(text)
+    # Normalize accents
+    text = normalize_text(text)
+    return text
+
+def ai_is_legitimate_company_name(text):
+    """
+    Uses AI to check if the company name seems legitimate.
+    Uses zero-shot classification to classify as legitimate or invalid.
+    """
+    try:
+        classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+        result = classifier(text, candidate_labels=["legitimate company name", "invalid or fake company name"])
+        return result['labels'][0] == "legitimate company name"
+    except Exception as e:
+        print(f"AI classification failed: {e}")
+        return False  # Fallback to False if AI fails
+
 def is_valid_company_name(text):
+    """
+    Heuristic and AI-based validation of company names. Returns True if the name seems valid, False otherwise.
+    """
     if pd.isna(text):
         return False
-    text = str(text).strip()
+    text = clean_company_name(text)
     if len(text) < 3:
         return False
     # Exclude invalid patterns
-    if 'http' in text.lower() or 'www.' in text.lower() or 'ww.' in text.lower() or '&' in text or 'non renseign' in text.lower() or 'moi' in text.lower() or 'je' in text.lower() or 'particulier' in text.lower() or 'auto installation' in text.lower() or 'particulier' in text.lower() or 'particulier' in text.lower() or 'auto installation' in text.lower() or "ne merite plus d'etre cite" in text.lower() or "000" in text or "a bannir" in text.lower() or "a eviter" in text.lower() or "a fuir" in text.lower() or "a proscrire" in text.lower() or "a oublier" in text.lower() or "a deconseiller" in text.lower() or "a ne pas contacter" in text.lower() or "a ne pas retenir" in text.lower() or "a ne pas choisir" in text.lower() or "a ne pas faire travailler" in text.lower() or "a ne pas faire appel" in text.lower() or "ne pas contacter" in text.lower() or "ne pas retenir" in text.lower() or "ne pas choisir" in text.lower() or "ne pas faire travailler" in text.lower() or "ne pas faire appel" in text.lower() or "a completer" in text.lower() or "a voir" in text.lower():
+    invalid_patterns = [
+        'http', 'www.', 'ww.', '&', 'non renseign', 'moi', 'je', 'particulier', 'auto installation',
+        "ne merite plus d'etre cite", "000", "a bannir", "a eviter", "a fuir", "a proscrire",
+        "a oublier", "a deconseiller", "a ne pas contacter", "a ne pas retenir", "a ne pas choisir",
+        "a ne pas faire travailler", "a ne pas faire appel", "ne pas contacter", "ne pas retenir",
+        "ne pas choisir", "ne pas faire travailler", "ne pas faire appel", "a completer", "a voir"
+    ]
+    if any(pattern in text.lower() for pattern in invalid_patterns):
         return False
     # Check for company indicators
     if any(char.isdigit() for char in text):
@@ -107,11 +156,17 @@ def is_valid_company_name(text):
     if ' ' in text:
         return True  # Likely full name
     keywords = ['sar', 'sas', 'sa', 'gmb', 'ltd', 'inc', 'co', 'entreprise', 'societe', 'electricite', 'energie', 'solaire']
-    if any(kw.lower() in text.lower() for kw in keywords):
+    if any(kw in text.lower() for kw in keywords):
+        return True
+    # Use AI as fallback
+    if ai_is_legitimate_company_name(text):
         return True
     return False
 
 def standardize_orientation(x):
+    """
+    Standardizes orientation values to integers: 0 for South, 90 for West, 180 for North, -90 for East.
+    """
     if pd.isna(x):
         return np.nan
     x = str(x).strip().lower()

@@ -10,6 +10,28 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def clean_data(input_file, output_file):
+    """
+    Clean and standardize the solar panel installation data.
+    1. Load the data.
+    2. Fix encoding issues.
+    3. Clean each column based on analysis.
+    4. Handle duplicates.
+    5. Remap locality and administrative areas using communes data.
+    6. Save the cleaned data.
+    7. Log all changes and issues.
+    8. Ensure iddoc uniqueness or log discrepancies.
+    9. Add code_insee and population columns based on locality and department.
+    10. Use postal_code to help resolve locality when possible.
+    11. If locality or department is missing or cannot be resolved, set related fields to null and log.
+    12. Handle special cases like Paris arrondissements.
+    13. Use fuzzy matching to improve locality matching when exact match is not found.
+    14. Ensure all text fields are stripped of leading/trailing whitespace.
+    15. Ensure all numeric fields are properly typed and handle non-numeric gracefully.
+    16. Validate installateur names using heuristic and AI-based checks.
+    17. Standardize region names to current official names.
+    18. Log any rows where locality could not be resolved.
+    19. Ensure the final dataset has no missing values in critical fields like iddoc, lat, lon.
+    """
     # Load communes data for postal code lookup
     logger.info("Loading communes data...")
     communes_file = "../communes-france-2024-limite.csv"
@@ -64,8 +86,6 @@ def clean_data(input_file, output_file):
 
     # panneaux_modele: Leave as is but upper, but strip
     df['panneaux_modele'] = df['panneaux_modele'].str.strip()
-    # Remove power specifications like /250W or (250W)
-    df['panneaux_modele'] = df['panneaux_modele'].str.replace(r'/\s*\d+W\b', '', regex=True).str.replace(r'\(\s*\d+W\s*\)', '', regex=True).str.strip()
     df['panneaux_modele'] = df['panneaux_modele'].str.upper()
 
     # nb_onduleur
@@ -84,6 +104,10 @@ def clean_data(input_file, output_file):
     df.loc[(df['puissance_crete'] == 0) & ((df['panneaux_modele'].str.lower() == 'pas_dans_la_liste_panneaux') | (df['panneaux_marque'].str.lower() == 'pas_dans_la_liste_panneaux')), 'puissance_crete'] = pd.NA
     # For other 0 values, keep as is for now
     df['puissance_crete'] = df['puissance_crete'].astype('Int64')
+
+    # Set name at null if panneaux_marque or panneaux_modele is 'pas_dans_la_liste_panneaux'
+    df.loc[(df['panneaux_modele'].str.lower() == 'pas_dans_la_liste_panneaux') | (df['panneaux_marque'].str.lower() == 'pas_dans_la_liste_panneaux'), ['panneaux_modele', 'panneaux_marque']] = pd.NA
+    df.loc[(df['onduleur_modele'].str.lower() == 'pas_dans_la_liste_onduleurs') | (df['onduleur_marque'].str.lower() == 'pas_dans_la_liste_onduleurs'), ['onduleur_modele', 'onduleur_marque']] = pd.NA
 
     # surface
     df['surface'] = pd.to_numeric(df['surface'], errors='coerce')
