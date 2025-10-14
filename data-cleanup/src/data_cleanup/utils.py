@@ -7,12 +7,7 @@ import re
 import torch
 from transformers import pipeline
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# Ou spécifiquement pour ROCm :
-if torch.hip.is_available():
-    device = torch.device("hip")
-else:
-    device = torch.device("cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
 def normalize_text(text):
     """
