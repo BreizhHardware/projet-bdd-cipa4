@@ -151,15 +151,14 @@ def generate_inserts(cleaned_csv_path, output_sql_path):
             if key in onduleurs:
                 id_o = onduleurs[key]
 
-        sql_lines.append(f"INSERT INTO Installation (Id_installation, nb_panneaux, nb_onduleurs, date_installation, production, puissance_crete, orientation, orientation_optimum, pente, pente_optimum, surface, latitude, longitude, Id_ville, Id_installateur, Id_panneau, Id_onduleur) VALUES ('{id_inst}', {nb_p}, {nb_o}, {date_inst}, {prod}, {pui}, {ori}, {ori_opt}, {pen}, {pen_opt}, {surf}, {lat}, {lon}, {'NULL' if id_v is None else f'{id_v}'}, {'NULL' if id_i is None else f'{id_i}'}, {'NULL' if id_p is None else f'{id_p}'}, {'NULL' if id_o is None else f'{id_o}'});")
+        # Prepare string values for foreign keys
+        id_v_str = 'NULL' if id_v is None else f"'{id_v}'"
+        id_i_str = 'NULL' if id_i is None else f"'{id_i}'"
+        id_p_str = 'NULL' if id_p is None else f"'{id_p}'"
+        id_o_str = 'NULL' if id_o is None else f"'{id_o}'"
+
+        sql_lines.append(f"INSERT INTO Installation (Id_installation, nb_panneaux, nb_onduleurs, date_installation, production, puissance_crete, orientation, orientation_optimum, pente, pente_optimum, surface, latitude, longitude, Id_ville, Id_installateur, Id_panneau, Id_onduleur) VALUES ('{id_inst}', {nb_p}, {nb_o}, {date_inst}, {prod}, {pui}, {ori}, {ori_opt}, {pen}, {pen_opt}, {surf}, {lat}, {lon}, {id_v_str}, {id_i_str}, {id_p_str}, {id_o_str});")
 
     # Write to output file
     with open(output_sql_path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(sql_lines))
-
-if __name__ == "__main__":
-    # Assume cleaned_data.csv is in the parent directory
-    cleaned_csv = os.path.join('..', 'cleaned_data.csv')
-    output_sql = '../sql/seeder/insert_data.sql'
-    generate_inserts(cleaned_csv, output_sql)
-    print(f"Insert script generated: {output_sql}")

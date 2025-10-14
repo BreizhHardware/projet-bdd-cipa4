@@ -27,6 +27,22 @@ Les fichiers de base sont fournis, à savoir :
     poetry install
     ```
 3. Configurer la base de données PostgreSQL :
+   Si vous possedez déjà une base de données PostgreSQL de notre projet, vous pouvez utiliser le script sql drop_and_recreate_db.sql pour supprimer et recréer la base de données. Sinon vous pouvez utiliser le script database.sql pour créer les tables nécessaires.
+    ```bash
+    psql -U votre_utilisateur -d votre_base_de_donnees -f ../sql/model/drop_and_recreate_db.sql
+    ```
+    ou
+    ```bash
+    psql -U votre_utilisateur -d votre_base_de_donnees -f ../sql/model/database.sql
+    ```
+4. Générer les scripts SQL pour insérer les données nettoyées :
+    ```bash
+    poetry run python src/data_cleanup/__init__.py
+    ```
+5. Inserer les données nettoyées dans la base de données :
+    ```bash
+    psql -U votre_utilisateur -d votre_base_de_donnees -f ../sql/seeder/insert_data.sql
+    ```
 
 ## Exécution
 1. Nettoyer et homogénéiser les données :
