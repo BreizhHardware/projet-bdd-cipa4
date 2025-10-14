@@ -4,7 +4,15 @@ import pandas as pd
 import numpy as np
 import html
 import re
+import torch
 from transformers import pipeline
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Ou spécifiquement pour ROCm :
+if torch.hip.is_available():
+    device = torch.device("hip")
+else:
+    device = torch.device("cpu")
 
 def normalize_text(text):
     """
@@ -126,7 +134,7 @@ def ai_is_legitimate_company_name(text):
     """
     try:
         classifier = pipeline("zero-shot-classification", model="typeform/distilbert-base-uncased-mnli")
-        result = classifier(text, candidate_labels=["a company that installs solar panels", "not a company that installs solar panels"], hypothesis_template="This is {}.")
+        result = classifier(text, candidate_labels=["a company that installs solar panels", "not a company that installs solar panels"], hypothesis_template="This is {}.", device=device)
         if result['labels'][0] == "a company that installs solar panels" and result['scores'][0] > 0.7:
             logging.info(text)
             logging.info(f"AI classification result: {result['labels'][0]} with score {result['scores'][0]}")
