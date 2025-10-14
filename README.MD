@@ -35,7 +35,7 @@ Les fichiers de base sont fournis, à savoir :
     ```bash
     psql -U votre_utilisateur -d votre_base_de_donnees -f ../sql/model/database.sql
     ```
-4. Générer les scripts SQL pour insérer les données nettoyées :
+4. Générer les scripts SQL pour insérer les données nettoyées, cela peut prendre longtemps étant donné qu'il y a un traitement par intelligence artificielle sur votre machine (13min sur un MacBook Air M2) :
     ```bash
     poetry run python src/data_cleanup/__init__.py
     ```
