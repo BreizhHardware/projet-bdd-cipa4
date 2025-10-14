@@ -49,3 +49,23 @@ Les fichiers de base sont fournis, à savoir :
     ```bash
    poetry run python src/data_cleanup/__init__.py
     ```
+2. Insérer les données nettoyées dans la base de données PostgreSQL :
+    ```bash
+    psql -U votre_utilisateur -d votre_base_de_donnees -f ../sql/seeder/insert_data.sql
+    ```
+3. Générer la carte des installations photovoltaïques :
+    ```bash
+    poetry run python src/data_cleanup/map_visualization.py
+    ```
+4. Ouvrir le fichier carte_installations_france.html dans votre navigateur pour visualiser la carte.
+
+## Requêtes SQL
+Les requêtes SQL pour analyser les données sont disponibles dans le dossier `sql/requests`. Vous pouvez les exécuter dans votre base de données PostgreSQL pour obtenir les résultats souhaités.
+    ```bash
+    psql -U votre_utilisateur -d votre_base_de_donnees -f ../sql/requests/SqlRequests.sql
+    ```
+
+## Auteurs
+- [Candice PAILLUSSON](https://www.linkedin.com/in/candice-paillusson-504aaa26b/)
+- [Clément HERVOUET](https://www.linkedin.com/in/cl%C3%A9ment-hervouet-93b718259/)
+- [Félix MARQUET](https://mrqt.fr)
