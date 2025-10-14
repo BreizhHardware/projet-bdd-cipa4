@@ -131,7 +131,9 @@ def clean_data(input_file, output_file):
     df['installateur'] = df['installateur'].str.strip().str.upper()
 
     # Validate installateur as company name
-    df['installateur_valide'] = df['installateur'].apply(is_valid_company_name)
+    unique_installateurs = df['installateur'].unique()
+    validity_cache = {inst: is_valid_company_name(inst) for inst in unique_installateurs}
+    df['installateur_valide'] = df['installateur'].map(validity_cache)
 
     # Handle duplicate iddoc again after cleaning
     duplicates = df[df.duplicated('iddoc', keep=False)]

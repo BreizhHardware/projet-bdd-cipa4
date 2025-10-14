@@ -1,3 +1,4 @@
+import logging
 import unicodedata
 import pandas as pd
 import numpy as np
@@ -29,7 +30,7 @@ def fix_encoding(text):
         'Ã¼': 'ü',
         'Ã«': 'ë',
         'Ã¹': 'ù',
-        'Ãª': 'ê',
+        'Ãê': 'ê',
         'Ã®': 'î',
         'Ã¶': 'ö',
         'Ã¤': 'ä',
@@ -120,15 +121,18 @@ def clean_company_name(text):
 
 def ai_is_legitimate_company_name(text):
     """
-    Uses AI to check if the company name seems legitimate.
-    Uses zero-shot classification to classify as legitimate or invalid.
+    Uses AI to check if the company name seems legitimate for solar panel installation.
+    Uses zero-shot classification to classify as a solar installer or not.
     """
     try:
-        classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
-        result = classifier(text, candidate_labels=["legitimate company name", "invalid or fake company name"])
-        return result['labels'][0] == "legitimate company name"
+        classifier = pipeline("zero-shot-classification", model="typeform/distilbert-base-uncased-mnli")
+        result = classifier(text, candidate_labels=["a company that installs solar panels", "not a company that installs solar panels"], hypothesis_template="This is {}.")
+        if result['labels'][0] == "a company that installs solar panels" and result['scores'][0] > 0.7:
+            logging.info(text)
+            logging.info(f"AI classification result: {result['labels'][0]} with score {result['scores'][0]}")
+        return result['labels'][0] == "a company that installs solar panels" and result['scores'][0] > 0.7
     except Exception as e:
-        print(f"AI classification failed: {e}")
+        logging.error(f"AI classification failed: {e}")
         return False  # Fallback to False if AI fails
 
 def is_valid_company_name(text):
@@ -146,7 +150,7 @@ def is_valid_company_name(text):
         "ne merite plus d'etre cite", "000", "a bannir", "a eviter", "a fuir", "a proscrire",
         "a oublier", "a deconseiller", "a ne pas contacter", "a ne pas retenir", "a ne pas choisir",
         "a ne pas faire travailler", "a ne pas faire appel", "ne pas contacter", "ne pas retenir",
-        "ne pas choisir", "ne pas faire travailler", "ne pas faire appel", "a completer", "a voir"
+        "ne pas choisir", "ne pas faire travailler", "ne pas faire appel", "a completer", "a voir", "aucun"
     ]
     if any(pattern in text.lower() for pattern in invalid_patterns):
         return False
@@ -155,7 +159,7 @@ def is_valid_company_name(text):
         return True  # Likely has registration number
     if ' ' in text:
         return True  # Likely full name
-    keywords = ['sar', 'sas', 'sa', 'gmb', 'ltd', 'inc', 'co', 'entreprise', 'societe', 'electricite', 'energie', 'solaire']
+    keywords = ['sar', 'sas', 'sa', 'gmb', 'ltd', 'inc', 'co', 'entreprise', 'societe', 'electricite', 'energie', 'solaire', 'solar', 'energy', 'ener', 'volt', 'sol', 'sun']
     if any(kw in text.lower() for kw in keywords):
         return True
     # Use AI as fallback
