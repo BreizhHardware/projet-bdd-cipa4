@@ -107,6 +107,7 @@ projet-bdd-cipa4/
 ├── projet-cipa4-2025-nantes-lancement.pdf         # PDF de lancement du projet
 ├── projet-cipa4-2025-nantes.pdf                   # PDF du projet
 ├── README.MD                                     # Ce fichier
+├── run_results.sh                                # Script pour exécuter les requêtes SQL et afficher les résultats dans le dossier sql/results/
 ├── Tutoriel PostgreSQL projet cipa.pdf           # Tutoriel PostgreSQL
 ├── data-cleanup/                                 # Dossier pour le nettoyage des données
 │   ├── carte_installations_france.html           # Carte interactive des installations
@@ -127,10 +128,12 @@ projet-bdd-cipa4/
 │   └── tests/                                    # Tests unitaires
 │       └── __init__.py
 └── sql/                                         # Scripts SQL
+    ├── results/                                 # Résultats des requêtes
     ├── model/
     │   └── database.sql                          # Création des tables
     ├── requests/
-    │   └── SqlRequests.sql                       # Requêtes d'analyse
+    │   ├── SqlRequests.sql                       # Requêtes d'analyse
+    │   └── testModel.sql                        # Tests du modèle
     └── seeder/
         └── insert_data.sql                       # Insertion des données
 ```
