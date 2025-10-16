@@ -3,14 +3,14 @@
 -- ----------------------------------------------------------
 
 -- Supprimer les tables dans l'ordre inverse des dépendances
-DROP TABLE IF EXISTS Installation;
-DROP TABLE IF EXISTS Localisation;
-DROP TABLE IF EXISTS Departement;
-DROP TABLE IF EXISTS Panneau;
-DROP TABLE IF EXISTS Onduleur;
-DROP TABLE IF EXISTS Installateur;
-DROP TABLE IF EXISTS Region;
-DROP TABLE IF EXISTS Marque;
+DROP TABLE IF EXISTS Installation CASCADE;
+DROP TABLE IF EXISTS Localisation CASCADE;
+DROP TABLE IF EXISTS Departement CASCADE;
+DROP TABLE IF EXISTS Panneau CASCADE;
+DROP TABLE IF EXISTS Onduleur CASCADE;
+DROP TABLE IF EXISTS Installateur CASCADE;
+DROP TABLE IF EXISTS Region CASCADE;
+DROP TABLE IF EXISTS Marque CASCADE;
 
 -- ----------------------------
 -- Table: Marque
