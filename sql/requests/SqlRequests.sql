@@ -254,7 +254,7 @@ LIMIT 100;
 -- -densité de puissance moyenne par commune ; 
 -- -top N marques d’onduleurs par nombre d’installations. 
 
-CREATE VIEW vue_puissance_region_annee AS
+CREATE OR REPLACE VIEW vue_puissance_region_annee AS
 SELECT 
     r.nom AS region,
     EXTRACT(YEAR FROM i.date_installation) AS annee,
@@ -270,9 +270,8 @@ GROUP BY r.nom, EXTRACT(YEAR FROM i.date_installation)
 ORDER BY annee DESC, puissance_totale DESC;
 
 SELECT * FROM vue_puissance_region_annee;
-DROP VIEW vue_puissance_region_annee;
 
-CREATE VIEW vue_densite_puissance_commune AS
+CREATE OR REPLACE VIEW vue_densite_puissance_commune AS
 SELECT
     l.ville AS commune,
     l.code_postal,
@@ -294,9 +293,8 @@ GROUP BY l.ville, l.code_postal, l.id_ville, d.nom, r.nom, l.population
 ORDER BY densite_puissance_par_habitant DESC;
 
 SELECT * FROM vue_densite_puissance_commune;
-DROP VIEW vue_densite_puissance_commune;
 
-CREATE VIEW vue_top_marques_onduleurs AS
+CREATE OR REPLACE VIEW vue_top_marques_onduleurs AS
 SELECT
     m.marque AS marque_onduleur,
     COUNT(DISTINCT i.id_installation) AS nombre_installations,
@@ -311,33 +309,29 @@ GROUP BY m.marque
 ORDER BY nombre_installations DESC;
 
 SELECT * FROM vue_top_marques_onduleurs;
-DROP VIEW vue_top_marques_onduleurs;
 
-CREATE VIEW vue_orientation_pente_region AS
+-- Ecart des orientations et pentes par rapport à l'optimum, par département
+
+CREATE OR REPLACE VIEW vue_departements_pente_orientation AS
 SELECT
-    r.nom AS region,
-    d.nom AS departement,
-    COUNT(i.id_installation) AS nombre_installations,
-    -- Statistiques orientation
-    AVG(i.orientation) AS orientation_moyenne,
-    MIN(i.orientation) AS orientation_min,
-    MAX(i.orientation) AS orientation_max,
-    STDDEV(i.orientation) AS orientation_ecart_type,
-    -- Statistiques pente
-    AVG(i.pente) AS pente_moyenne,
-    MIN(i.pente) AS pente_min,
-    MAX(i.pente) AS pente_max,
-    STDDEV(i.pente) AS pente_ecart_type
-FROM Installation i
-JOIN Localisation l ON i.id_ville = l.id_ville
-JOIN Departement d ON l.departement_code = d.departement_code
-JOIN Region r ON d.region_code = r.region_code
-WHERE i.orientation IS NOT NULL AND i.pente IS NOT NULL
-GROUP BY GROUPING SETS (
-    (r.nom, d.nom),  -- Par département
-    (r.nom)          -- Par région
-)
-ORDER BY r.nom, d.nom NULLS FIRST;
+    R.nom AS nom_region,
+    D.nom AS nom_departement,
+    COUNT(I.Id_installation) AS nombre_installations,
+    ROUND(AVG(I.orientation)) AS moyenne_orientation,
+    ROUND(AVG(I.orientation_optimum)) AS moyenne_orientation_optimum,
+    ROUND(AVG(I.pente)) AS moyenne_pente,
+    ROUND(AVG(I.pente_optimum)) AS moyenne_pente_optimum
+FROM
+    Installation I
+JOIN
+    Localisation L ON I.Id_ville = L.Id_ville
+JOIN
+    Departement D ON L.departement_code = D.departement_code
+JOIN
+    Region R ON D.region_code = R.region_code
+GROUP BY
+    R.nom, D.nom
+ORDER BY
+    R.nom, D.nom;
 
-SELECT * FROM vue_orientation_pente_region;
-DROP VIEW vue_orientation_pente_region;
+SELECT * FROM vue_departements_pente_orientation;
