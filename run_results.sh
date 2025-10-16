@@ -43,7 +43,8 @@ FROM Installation i
          JOIN Onduleur o ON o.Id_onduleur= i.Id_onduleur
          JOIN Panneau p ON p.Id_panneau= i.Id_panneau
          JOIN Marque mo ON mo.id_marque = o.id_marque
-WHERE p.modele = 'HIP-210 NKHE1';
+WHERE p.modele = 'HIP-210 NKHE1'
+LIMIT 100;
 EOF
 
 cat <<'EOF' > sql/requests/results/request_2.sql
@@ -96,7 +97,8 @@ FROM installation i
          JOIN onduleur o ON o.Id_onduleur= i.Id_onduleur
          JOIN marque m ON m.id_marque = o.id_marque
 GROUP BY m.marque
-ORDER BY Nb_installation DESC;
+ORDER BY Nb_installation DESC
+LIMIT 100;
 EOF
 
 cat <<'EOF' > sql/requests/results/request_4.sql
@@ -124,7 +126,8 @@ SELECT
         END AS tranche_pente
 FROM Installation i
 GROUP BY i.orientation, tranche_pente
-ORDER BY i.orientation, tranche_pente;
+ORDER BY i.orientation, tranche_pente
+LIMIT 100;
 EOF
 
 cat <<'EOF' > sql/requests/results/request_5.sql
@@ -220,7 +223,8 @@ WHERE puissance_crete IS NOT NULL AND surface IS NOT NULL AND surface > 0
     SELECT AVG(puissance_crete / surface)
     FROM installation
     WHERE puissance_crete IS NOT NULL AND surface IS NOT NULL AND surface > 0
-);
+)
+LIMIT 100;
 EOF
 
 cat <<'EOF' > sql/requests/results/request_8.sql
@@ -377,8 +381,9 @@ JOIN Departement d ON l.departement_code = d.departement_code
 JOIN Region r ON d.region_code = r.region_code
 WHERE i.date_installation IS NOT NULL
 GROUP BY r.nom, EXTRACT(YEAR FROM i.date_installation)
-ORDER BY annee DESC, puissance_totale DESC;
-SELECT * FROM vue_puissance_region_annee;
+ORDER BY annee DESC, puissance_totale DESC
+LIMIT 100;
+SELECT * FROM vue_puissance_region_annee LIMIT 100;
 DROP VIEW vue_puissance_region_annee;
 CREATE VIEW vue_densite_puissance_commune AS
 SELECT
@@ -399,8 +404,9 @@ JOIN Localisation l ON i.id_ville = l.id_ville
 JOIN Departement d ON l.departement_code = d.departement_code
 JOIN Region r ON d.region_code = r.region_code
 GROUP BY l.ville, l.code_postal, l.id_ville, d.nom, r.nom, l.population
-ORDER BY densite_puissance_par_habitant DESC;
-SELECT * FROM vue_densite_puissance_commune;
+ORDER BY densite_puissance_par_habitant DESC
+LIMIT 100;
+SELECT * FROM vue_densite_puissance_commune LIMIT 100;
 DROP VIEW vue_densite_puissance_commune;
 CREATE VIEW vue_top_marques_onduleurs AS
 SELECT
@@ -414,8 +420,9 @@ FROM Installation i
 JOIN Onduleur o ON i.id_onduleur = o.id_onduleur
 JOIN Marque m ON o.id_marque = m.id_marque
 GROUP BY m.marque
-ORDER BY nombre_installations DESC;
-SELECT * FROM vue_top_marques_onduleurs;
+ORDER BY nombre_installations DESC
+LIMIT 100;
+SELECT * FROM vue_top_marques_onduleurs LIMIT 100;
 DROP VIEW vue_top_marques_onduleurs;
 CREATE VIEW vue_orientation_pente_region AS
 SELECT
@@ -439,8 +446,9 @@ GROUP BY GROUPING SETS (
     (r.nom, d.nom),
     (r.nom)
 )
-ORDER BY r.nom, d.nom NULLS FIRST;
-SELECT * FROM vue_orientation_pente_region;
+ORDER BY r.nom, d.nom NULLS FIRST
+LIMIT 100;
+SELECT * FROM vue_orientation_pente_region LIMIT 100;
 DROP VIEW vue_orientation_pente_region;
 EOF
 

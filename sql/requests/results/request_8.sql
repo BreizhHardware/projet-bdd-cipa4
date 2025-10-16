@@ -11,7 +11,8 @@ WHERE puissance_crete IS NOT NULL AND surface IS NOT NULL AND surface > 0
     SELECT AVG(puissance_crete / surface)
     FROM installation
     WHERE puissance_crete IS NOT NULL AND surface IS NOT NULL AND surface > 0
-);
+)
+LIMIT 100;
 -- Result
  nb_inferieures_a_moyenne | moyenne_globale 
 --------------------------+-----------------

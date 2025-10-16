@@ -222,7 +222,8 @@ CREATE TRIGGER trigger_update_last_modified_Installation
 -- 1. Coefficient de corrélation entre surface et puissance_crete
 SELECT CORR(surface, puissance_crete) AS correlation_surface_puissance
 FROM Installation
-WHERE surface IS NOT NULL AND puissance_crete IS NOT NULL AND surface > 0;
+WHERE surface IS NOT NULL AND puissance_crete IS NOT NULL AND surface > 0
+LIMIT 100;
 
 -- 2. Moyenne de puissance_crete par tranches de surface
 SELECT
@@ -239,7 +240,8 @@ SELECT
 FROM Installation
 WHERE surface IS NOT NULL AND puissance_crete IS NOT NULL AND surface > 0
 GROUP BY tranche_surface
-ORDER BY tranche_surface;
+ORDER BY tranche_surface
+LIMIT 100;
 
 -- 3. Données pour scatter plot
 SELECT puissance_crete, surface
@@ -267,9 +269,10 @@ JOIN Departement d ON l.departement_code = d.departement_code
 JOIN Region r ON d.region_code = r.region_code
 WHERE i.date_installation IS NOT NULL
 GROUP BY r.nom, EXTRACT(YEAR FROM i.date_installation)
-ORDER BY annee DESC, puissance_totale DESC;
+ORDER BY annee DESC, puissance_totale DESC
+LIMIT 100;
 
-SELECT * FROM vue_puissance_region_annee;
+SELECT * FROM vue_puissance_region_annee LIMIT 100;
 
 CREATE OR REPLACE VIEW vue_densite_puissance_commune AS
 SELECT
@@ -290,9 +293,10 @@ JOIN Localisation l ON i.id_ville = l.id_ville
 JOIN Departement d ON l.departement_code = d.departement_code
 JOIN Region r ON d.region_code = r.region_code
 GROUP BY l.ville, l.code_postal, l.id_ville, d.nom, r.nom, l.population
-ORDER BY densite_puissance_par_habitant DESC;
+ORDER BY densite_puissance_par_habitant DESC
+LIMIT 100;
 
-SELECT * FROM vue_densite_puissance_commune;
+SELECT * FROM vue_densite_puissance_commune LIMIT 100;
 
 CREATE OR REPLACE VIEW vue_top_marques_onduleurs AS
 SELECT
@@ -306,9 +310,10 @@ FROM Installation i
 JOIN Onduleur o ON i.id_onduleur = o.id_onduleur
 JOIN Marque m ON o.id_marque = m.id_marque
 GROUP BY m.marque
-ORDER BY nombre_installations DESC;
+ORDER BY nombre_installations DESC
+LIMIT 100;
 
-SELECT * FROM vue_top_marques_onduleurs;
+SELECT * FROM vue_top_marques_onduleurs LIMIT 100;
 
 -- Ecart des orientations et pentes par rapport à l'optimum, par département
 
@@ -332,6 +337,7 @@ JOIN
 GROUP BY
     R.nom, D.nom
 ORDER BY
-    R.nom, D.nom;
+    R.nom, D.nom
+LIMIT 100;
 
-SELECT * FROM vue_departements_pente_orientation;
+SELECT * FROM vue_departements_pente_orientation LIMIT 100;
