@@ -86,7 +86,7 @@ poetry run python src/data_cleanup/map_visualization.py
 poetry run python src/data_cleanup/map_orientation_pente.py
 ```
 
-4. **Visualiser les carte** :
+4. **Visualiser les cartes** :
    - Ouvrez le fichier `carte_installations_france.html` dans votre navigateur.
    - Ouvrez le fichier `carte_ecart_orientation.html` dans votre navigateur.
    - Ouvrez le fichier `carte_ecart_pente.html` dans votre navigateur.
