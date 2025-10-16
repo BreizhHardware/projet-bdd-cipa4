@@ -102,7 +102,9 @@ projet-bdd-cipa4/
 ├── communes-france-2024-limite.csv               # Référentiel des communes françaises
 ├── data_small.csv                                # Échantillon de données
 ├── data.csv                                      # Données brutes des installations
+├── MCD.png                                     # Image du modèle conceptuel de données (MCD)
 ├── Mcd_V1.mcd                                    # Modèle conceptuel de données (MCD)
+├── MLD.png                                     # Image du modèle logique de données (MLD)
 ├── Présentation projet.md                        # Présentation du projet
 ├── projet-cipa4-2025-nantes-lancement.pdf         # PDF de lancement du projet
 ├── projet-cipa4-2025-nantes.pdf                   # PDF du projet
