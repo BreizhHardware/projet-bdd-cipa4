@@ -149,6 +149,12 @@ Les requêtes SQL pour analyser les données sont disponibles dans le dossier `s
 psql -U votre_utilisateur -d votre_base_de_donnees -f ../sql/requests/SqlRequests.sql
 ```
 
+Pour obtenir chaque résultat dans un fichier séparé, utilisez le script `run_results.sh` :
+
+```bash
+bash run_results.sh
+```
+
 ## 👥 Auteurs
 
 - [Candice PAILLUSSON](https://www.linkedin.com/in/candice-paillusson-504aaa26b/)
