@@ -5,16 +5,19 @@
 Dans le cadre du cours de **Base de Données**, ce projet vous invite à concevoir et interroger une base de données relationnelle portant sur les installations photovoltaïques résidentielles. Le jeu de données est fourni dans le cas du projet.
 
 ### 🎯 Objectifs
+
 - Construire un schéma relationnel en **3FN** (Troisième Forme Normale).
 - Nettoyer et homogénéiser les fichiers source.
 - Charger les données dans une base de données **PostgreSQL**.
 - Répondre à un ensemble de requêtes d'analyse.
 
 ### 📊 Fichiers de Base
+
 - `data.csv` : Contient les installations avec puissance crête, surface, marques, orientation, etc.
 - `communes-france-2024-limite.csv` : Référentiel des communes françaises avec code INSEE, commune, département, région et code postal.
 
 ## 📋 Requirements
+
 - Python 3.x
 - PostgreSQL
 - Poetry (pour la gestion des dépendances)
@@ -22,24 +25,28 @@ Dans le cadre du cours de **Base de Données**, ce projet vous invite à concevo
 ## 🚀 Installation
 
 1. **Cloner le dépôt GitHub** :
+
    ```bash
    git clone https://github.com/breizhhardware/projet-bdd-cipa4.git
    cd projet-bdd-cipa4/data-cleanup
    ```
 
 2. **Installer les dépendances avec Poetry** :
+
    ```bash
    poetry install
    ```
 
 3. **Configurer la base de données PostgreSQL** :
    Utilisez `database.sql` pour créer les tables nécessaires (si la base existe déjà, les tables seront supprimées avant d'être recréées).
+
    ```bash
    psql -U votre_utilisateur -d votre_base_de_donnees -f ../sql/model/database.sql
    ```
 
 4. **Générer les scripts SQL pour insérer les données nettoyées** :
    ⚠️ Cela peut prendre du temps en raison du traitement par IA (environ 13 min sur un MacBook Air M2).
+
    ```bash
    poetry run python src/data_cleanup/__init__.py
    ```
@@ -52,24 +59,37 @@ Dans le cadre du cours de **Base de Données**, ce projet vous invite à concevo
 ## ▶️ Exécution
 
 1. **Nettoyer et homogénéiser les données** :
+
    ```bash
    poetry run python src/data_cleanup/__init__.py
    ```
 
 2. **Insérer les données nettoyées dans PostgreSQL** :
+
    ```bash
    psql -U votre_utilisateur -d votre_base_de_donnees -f ../sql/seeder/insert_data.sql
    ```
 
-3. **Générer la carte des installations photovoltaïques** :
+3. **Générer des cartes** :
 
 ⚠️ Il faut avoir exécuté le script de nettoyage des données avant et avoir adapter le `.env.example` a votre environnement et le nommer en `.env`.
+
+- Pour générer la carte des installations photovoltaïques
+
 ```bash
 poetry run python src/data_cleanup/map_visualization.py
 ```
 
-4. **Visualiser la carte** :
-   Ouvrez le fichier `carte_installations_france.html` dans votre navigateur.
+- Pour générer les cartes de comparaison des pentes et orientation optimum
+
+```bash
+poetry run python src/data_cleanup/map_orientation_pente.py
+```
+
+4. **Visualiser les carte** :
+   - Ouvrez le fichier `carte_installations_france.html` dans votre navigateur.
+   - Ouvrez le fichier `carte_ecart_orientation.html` dans votre navigateur.
+   - Ouvrez le fichier `carte_ecart_pente.html` dans votre navigateur.
 
 ## 📁 Structure du Projet
 
@@ -100,6 +120,7 @@ projet-bdd-cipa4/
 │   │       ├── detect_encoding.py                # Détection d'encodage
 │   │       ├── generate_inserts.py               # Génération des inserts SQL
 │   │       ├── map_visualization.py              # Visualisation de la carte
+|   |       ├── map_orientation_pente             # Visualisation de cartes sur l'orientation et les pentes
 │   │       ├── query_12.py                       # Requête spécifique
 │   │       ├── utils.py                          # Utilitaires
 │   │       └── __pycache__/                      # Cache Python
@@ -134,4 +155,4 @@ psql -U votre_utilisateur -d votre_base_de_donnees -f ../sql/requests/SqlRequest
 
 ---
 
-*Projet réalisé dans le cadre du cours de Base de Données à l'ISEN Nantes.*
+_Projet réalisé dans le cadre du cours de Base de Données à l'ISEN Nantes._
