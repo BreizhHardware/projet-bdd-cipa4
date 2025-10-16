@@ -20,7 +20,7 @@ Dans le cadre du cours de **Base de Données**, ce projet vous invite à concevo
 
 - Python 3.x
 - PostgreSQL
-- Poetry (pour la gestion des dépendances)
+- [Poetry](https://python-poetry.org/docs/#installing-with-pipx) (pour la gestion des dépendances)
 
 ## 🚀 Installation
 
