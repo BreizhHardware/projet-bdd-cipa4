@@ -123,8 +123,7 @@ projet-bdd-cipa4/
 │   │       ├── map_visualization.py              # Visualisation de la carte
 |   |       ├── map_orientation_pente             # Visualisation de cartes sur l'orientation et les pentes
 │   │       ├── query_12.py                       # Requête spécifique
-│   │       ├── utils.py                          # Utilitaires
-│   │       └── __pycache__/                      # Cache Python
+│   │       └── utils.py                          # Utilitaires
 │   └── tests/                                    # Tests unitaires
 │       └── __init__.py
 └── sql/                                         # Scripts SQL
